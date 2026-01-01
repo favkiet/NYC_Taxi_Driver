@@ -1,0 +1,26 @@
+# Data Processing
+pyspark
+numpy
+pandas
+dask
+geopy
+h3
+
+# Modeling
+xgboost
+scikit-learn
+statsmodels
+tensorflow
+
+# API
+fastapi
+uvicorn
+redis
+
+# Visualization
+folium
+plotly
+matplotlib
+pyarrow
+seaborn
+notebook
