@@ -219,6 +219,7 @@ __marimo__/
 
 # Data
 data
+jars
 
 # Docker Compose overrides (cấu hình cá nhân)
 docker-compose.override.yml
