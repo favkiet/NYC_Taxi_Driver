@@ -1,5 +1,5 @@
 # Data Processing
-pyspark
+pyspark==3.5.7
 numpy
 pandas
 dask
@@ -24,3 +24,12 @@ matplotlib
 pyarrow
 seaborn
 notebook
+
+# Configuration
+python-dotenv
+boto3
+requests
+s3fs>=2023.1.0
+
+# Kafka
+kafka-python
