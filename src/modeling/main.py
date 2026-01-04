@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import xgboost as xgb
 import pickle
 from sklearn.model_selection import train_test_split
@@ -28,8 +29,9 @@ class TaxiDemandPredictor:
         
         # Đánh giá sơ bộ
         predictions = self.model.predict(X_test)
-        rmse = mean_squared_error(y_test, predictions, squared=False)
-        print(f"Model RMSE: {rmse}")
+        mse = mean_squared_error(y_test, predictions)
+        rmse = np.sqrt(mse)
+        print(f"Model RMSE: {rmse:.2f}")
         return self.model
 
     def save_model(self, path="model.pkl"):
