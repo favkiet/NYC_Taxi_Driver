@@ -71,8 +71,8 @@ def main():
 
     processor = TaxiDataProcessor(spark)
 
-    # 1. Đọc dữ liệu từ 2 nguồn (Mac Folder và Win Folder)
-    # raw: chứa data 2025 (từ Mac), raw_win: chứa data 2024 (từ Win)
+    # 1. Đọc dữ liệu Yellow Taxi từ MinIO
+    # raw: chứa data Yellow Taxi 2025
     raw_df = processor.read_from_minio("nyc-taxi-driver", ["raw"])
 
     # 2. Xử lý
