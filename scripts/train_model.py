@@ -24,14 +24,16 @@ def main():
         "client_kwargs": {"endpoint_url": f"http://{MAC_IP}:{MINIO_PORT}"}
     }
     
-    # Đường dẫn file đã xử lý bởi Spark
-    data_path = "s3://nyc-taxi-driver/processed/taxi_demand_features" 
+    # Đường dẫn files đã xử lý
+    batch_path = "s3://nyc-taxi-driver/processed/taxi_demand_features"
+    streaming_path = "s3://nyc-taxi-driver/streaming/demand_aggregated"
 
     predictor = TaxiDemandPredictor()
     
-    # 1. Load Data
-    print("Đang tải dữ liệu từ MinIO...")
-    df = predictor.load_data(data_path, minio_options)
+    # 1. Load Data từ cả batch và streaming
+    
+    print("🔄 Đọc từ cả batch và streaming data...")
+    df = predictor.load_data_multiple_sources(batch_path, streaming_path, minio_options)
     
     # 2. Train
     predictor.train(df)

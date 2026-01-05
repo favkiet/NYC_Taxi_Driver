@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, hour, dayofweek, month, to_timestamp, count, sum as _sum, when, coalesce
+from pyspark.sql.functions import col, hour, dayofweek, month, count, sum as _sum
 
 class TaxiDataProcessor:
     def __init__(self, spark: SparkSession):
@@ -7,45 +7,29 @@ class TaxiDataProcessor:
 
     def read_from_minio(self, bucket_name: str, folders: list):
         """
-        Đọc dữ liệu từ nhiều folder khác nhau trên MinIO (Yellow và Green Taxi)
+        Đọc dữ liệu Yellow Taxi từ MinIO
         """
         full_paths = [
             "s3a://nyc-taxi-driver/raw/2025/*.parquet",  # Yellow Taxi
         ]
         print(f"\n{'='*60}")
-        print("📥 BƯỚC 1: ĐỌC DỮ LIỆU TỪ MINIO")
+        print("📥 BƯỚC 1: ĐỌC DỮ LIỆU YELLOW TAXI TỪ MINIO")
         print(f"{'='*60}")
         print("Đang đọc dữ liệu từ:")
         for path in full_paths:
             print(f"  - {path}")
         
-        # option("mergeSchema", "true") để gộp schema nếu 2 loại taxi lệch nhau
-        df = self.spark.read.option("mergeSchema", "true").parquet(*full_paths)
+        df = self.spark.read.parquet(*full_paths)
         
         total_records = df.count()
-        print(f"\n✓ Đã đọc thành công: {total_records:,} records")
-        
-        # Kiểm tra loại taxi
-        has_yellow = "tpep_pickup_datetime" in df.columns
-        has_green = "lpep_pickup_datetime" in df.columns
-        
-        if has_yellow and has_green:
-            yellow_count = df.filter(col("tpep_pickup_datetime").isNotNull()).count()
-            green_count = df.filter(col("lpep_pickup_datetime").isNotNull()).count()
-            print(f"  - Yellow Taxi: {yellow_count:,} records")
-            print(f"  - Green Taxi: {green_count:,} records")
-        elif has_yellow:
-            print("  - Chỉ có Yellow Taxi")
-        elif has_green:
-            print("  - Chỉ có Green Taxi")
-        
+        print(f"\n✓ Đã đọc thành công: {total_records:,} records (Yellow Taxi)")
         print(f"Schema có {len(df.columns)} cột")
         return df
 
     def clean_and_engineer(self, df):
         """
         Bước 1 & 2: Làm sạch + Feature Engineering (Time & Zone)
-        Xử lý cả Yellow Taxi (tpep_pickup_datetime) và Green Taxi (lpep_pickup_datetime)
+        Xử lý Yellow Taxi (tpep_pickup_datetime)
         """
         print("\n{'='*60}")
         print("🧹 BƯỚC 2: LÀM SẠCH VÀ FEATURE ENGINEERING")
@@ -54,16 +38,10 @@ class TaxiDataProcessor:
         initial_count = df.count()
         print(f"Records ban đầu: {initial_count:,}")
         
-        # Tạo cột pickup_datetime thống nhất từ cả 2 loại taxi
-        pickup_datetime = coalesce(
-            col("tpep_pickup_datetime"),  # Yellow Taxi
-            col("lpep_pickup_datetime")   # Green Taxi
-        )
-        
         # Lọc dữ liệu rác
         print("\nĐang lọc dữ liệu:")
-        print("  - Loại bỏ records thiếu pickup_datetime")
-        df_after_datetime = df.filter(pickup_datetime.isNotNull())
+        print("  - Loại bỏ records thiếu tpep_pickup_datetime")
+        df_after_datetime = df.filter(col("tpep_pickup_datetime").isNotNull())
         print("  - Loại bỏ records có trip_distance <= 0")
         df_after_distance = df_after_datetime.filter(col("trip_distance") > 0)
         print("  - Loại bỏ records thiếu PULocationID")
@@ -75,15 +53,15 @@ class TaxiDataProcessor:
         
         # Feature Engineering: Tách giờ, thứ, ngày tháng
         print(f"\nĐang tạo features:")
-        print("  - pickup_datetime (thống nhất từ Yellow/Green)")
+        print("  - pickup_datetime (từ tpep_pickup_datetime)")
         print("  - pickup_hour, pickup_day, pickup_month")
         print("  - date_str")
         
-        df_featured = df_clean.withColumn("pickup_datetime", pickup_datetime) \
-                            .withColumn("pickup_hour", hour(pickup_datetime)) \
-                            .withColumn("pickup_day", dayofweek(pickup_datetime)) \
-                            .withColumn("pickup_month", month(pickup_datetime)) \
-                            .withColumn("date_str", pickup_datetime.cast("date"))
+        df_featured = df_clean.withColumn("pickup_datetime", col("tpep_pickup_datetime")) \
+                            .withColumn("pickup_hour", hour(col("tpep_pickup_datetime"))) \
+                            .withColumn("pickup_day", dayofweek(col("tpep_pickup_datetime"))) \
+                            .withColumn("pickup_month", month(col("tpep_pickup_datetime"))) \
+                            .withColumn("date_str", col("tpep_pickup_datetime").cast("date"))
         
         print("✓ Hoàn thành feature engineering")
         return df_featured
