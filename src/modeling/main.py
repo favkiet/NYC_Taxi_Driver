@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error
 class TaxiDemandPredictor:
     def __init__(self):
         self.model = None
+        self.feature_names = ['day_of_week', 'month', 'is_weekend', 'pickup_hour', 'PULocationID']
 
     def load_data(self, s3_path, storage_options):
         """Đọc dữ liệu đã xử lý từ MinIO về Pandas"""
@@ -89,26 +90,81 @@ class TaxiDemandPredictor:
         else:
             raise ValueError("Không có dữ liệu từ cả 2 nguồn!")
 
+    def extract_date_features(self, df):
+        """
+        Extract features từ date_str: day_of_week, month, is_weekend
+        """
+        # Đảm bảo date_str là datetime
+        # Xử lý các trường hợp: date object, string, hoặc datetime
+        if df['date_str'].dtype == 'object':
+            # Có thể là string hoặc date object
+            df['date_str'] = pd.to_datetime(df['date_str'])
+        elif not pd.api.types.is_datetime64_any_dtype(df['date_str']):
+            # Nếu không phải datetime, convert
+            df['date_str'] = pd.to_datetime(df['date_str'])
+        
+        # Extract features từ date
+        df['day_of_week'] = df['date_str'].dt.dayofweek  # 0=Monday, 6=Sunday
+        df['month'] = df['date_str'].dt.month  # 1-12
+        df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)  # Saturday=5, Sunday=6
+        
+        return df
+
     def train(self, df):
+        """
+        Train model với features: date_str (extracted), pickup_hour, PULocationID
+        Target: trip_count
+        """
+        print("\n🔧 Đang extract features từ date_str...")
+        df = self.extract_date_features(df.copy())
+        
         # Chọn features và target
-        # Features: Giờ, Khu vực. Target: Số chuyến xe
-        X = df[['pickup_hour', 'PULocationID']] 
+        # Features: day_of_week, month, is_weekend, pickup_hour, PULocationID
+        feature_cols = ['day_of_week', 'month', 'is_weekend', 'pickup_hour', 'PULocationID']
+        
+        # Kiểm tra columns có tồn tại không
+        missing_cols = [col for col in feature_cols if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Thiếu columns: {missing_cols}")
+        
+        X = df[feature_cols]
         y = df['trip_count']
+        
+        print(f"✓ Features sử dụng: {feature_cols}")
+        print(f"✓ Số lượng samples: {len(X):,}")
+        print(f"✓ Target: trip_count (min={y.min():.0f}, max={y.max():.0f}, mean={y.mean():.2f})")
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        print("Đang train XGBoost Model...")
-        self.model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100)
+        print("\n🚀 Đang train XGBoost Model...")
+        self.model = xgb.XGBRegressor(
+            objective='reg:squarederror', 
+            n_estimators=100,
+            random_state=42
+        )
         self.model.fit(X_train, y_train)
         
         # Đánh giá sơ bộ
         predictions = self.model.predict(X_test)
         mse = mean_squared_error(y_test, predictions)
         rmse = np.sqrt(mse)
-        print(f"Model RMSE: {rmse:.2f}")
+        print(f"✓ Model RMSE: {rmse:.2f}")
+        print(f"✓ Model MAE: {np.mean(np.abs(y_test - predictions)):.2f}")
+        
+        # Lưu feature names để API sử dụng
+        self.feature_names = feature_cols
+        
         return self.model
 
     def save_model(self, path="model.pkl"):
+        """
+        Lưu model và feature names
+        """
+        model_data = {
+            'model': self.model,
+            'feature_names': self.feature_names
+        }
         with open(path, "wb") as f:
-            pickle.dump(self.model, f)
+            pickle.dump(model_data, f)
         print(f"Model đã lưu tại: {path}")
+        print(f"Features: {self.feature_names}")

@@ -12,6 +12,12 @@ scikit-learn
 statsmodels
 tensorflow
 
+# Spark ML Models
+# Note: spark-xgboost cần được cài đặt qua Spark packages:
+# spark-submit --packages ml.dmlc:xgboost4j-spark_2.12:1.7.6
+# Hoặc thêm vào spark.jars.packages trong SparkSession config
+# spark-xgboost không có trên PyPI, cần dùng JAR files
+
 # API
 fastapi
 uvicorn
@@ -30,6 +36,3 @@ python-dotenv
 boto3
 requests
 s3fs>=2023.1.0
-
-# Kafka
-kafka-python
